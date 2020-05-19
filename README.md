@@ -1,0 +1,1 @@
+# Initial Securing Qlik Sense
