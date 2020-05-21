@@ -18,6 +18,7 @@ john.park@qlik.com
 **Revisions** | **Notes** | **Date** | **Version**
 ------------------ | ----------- | --------- | -----------
 Initial Draft | 20-May-2020 | John Park | 0.1 |
+Release Draft | 21-May-2021 | John Park | 1.0 |
 
 # Table of Contents
 
@@ -35,7 +36,7 @@ Initial Draft | 20-May-2020 | John Park | 0.1 |
 
 [**Part 5 - Configure Proxy**](#part-5)
 
-[**Part 6 - Veification**](#part-6)
+[**Part 6 - Verification**](#part-6)
 
 [**Part 7 - Additional Information**](#part-7)
 
@@ -49,14 +50,16 @@ Also without proper Certificate and Qlik Mobile / Many of the SAML services will
 
 These are reference sites you can look at as suppliment to this site.
 
-- <https://letsencrypt.org/>
-- <https://certbot.eff.org/>
-- <https://www.sslforfree.com/>
-- <https://help.qlik.com/en-US/sense>
-- <https://www.ssl.com/how-to/create-a-pfx-p12-certificate-file-using-openssl/>
-- <https://ptarmiganlabs.com/blog/2017/10/01/free-ssl-certificates-for-qlik-sense/>
+- [Let'sEncrypt.org](https://letsencrypt.org/)
+- [CertBot for Automation for FreeSSL](https://certbot.eff.org/)
+- [SSLforFree/ZeroSSL Site used to create 90 day free SSL using Let's Encrypt Authority](https://www.sslforfree.com/)
+- [Qlik's help site](https://help.qlik.com/en-US/sense)
+- [How To Create a PFX Cerfiticate: Qlik Sense Requires a PFX Certificate](https://www.ssl.com/how-to/create-a-pfx-p12-certificate-file-using-openssl/)
+- [Great Article from Qlik Developer Ptarmigan Labs](https://ptarmiganlabs.com/blog/2017/10/01/free-ssl-certificates-for-qlik-sense/)
+- [Qlik Community: Using DigiCert to Generate and Load Qlik Sense Certificates](https://community.qlik.com/t5/Qlik-Sense-Documents-Videos/Generating-Certificate-Signing-Requests-for-Trusted-Certificates/ta-p/1485241?attachment-id=140866) -[Qlik Community: Qlik Sense on AWS - Agastin Devaraj](https://community.qlik.com/t5/Technology-Partners-Ecosystem-Documents/Qlik-Sense-on-AWS-Deployment-Guide/ta-p/1550371?attachment-id=161431)
+- [Qlik Community: Qlik Sense on AWS Deployment June 2017 - Jesus Centenos](https://community.qlik.com/t5/Qlik-Sense-Documents-Videos/NEW-June2017-Qlik-Sense-on-AWS-Deployment-Guide/ta-p/1495351?_ga=2.51544809.1747120527.1589997368-1011739496.1577464420&attachment-id=141471)
 
-Environment
+### Environment
 
 - Test Domain - test.johnpark.io
 - Version - Qlik Sense Feburary 2020
@@ -184,10 +187,13 @@ Create the path needed by SSLforFree and place file._
 
 ![D](./media/DownloadCertificates.jpeg)
 
-Now you have your Certificate !!!
-_It Should be a zip file with CA Bundle, Certificate, and Private Key_
+- ## Now you have your Certificate !!!
 
-Stop IIS Website by removing Biding and Deleting Site. In Win2016 Server Service names are _Windows Process Activation Service and the World Wide Web Publishing Service_. Make sure in Services those processes will auto start.
+It Should be a zip file with CA Bundle, Certificate, and Private Key
+
+![CertificateBundle](./media/certbundle.jpeg)
+
+Stop IIS Website by removing Binding and Deleting Site. In Win2016 Server Service names are _Windows Process Activation Service and the World Wide Web Publishing Service_. Make sure in Services place those services in manual mode or processes will auto start during reboot.
 **_(Personal Preference is removing IIS)_**
 
 You can start Qlik Sense Server Processes again.
@@ -196,63 +202,92 @@ You can start Qlik Sense Server Processes again.
 
 ### Import Certificates
 
-Now we need to create an Create Qlik Replicate Connection for Teradata with appropriate settings.
+Using OpenSSL we need to combine the SSL Certificate and Private Key to creat a single PFX certificate.
 
-**Configure Teradata as a source in Connection Manager for Attunity.**
+We will use Win64OpenSSL_Light1_1_1g for this. You can download it from [Shining Light Production](http://slproweb.com/products/Win32OpenSSL.html)
 
-Click "Manage Endpoint Connections" and following window should popup.
+Here are some OpenSSL webiste I used to reference the command from for those who are interested.
 
-**_Figure A.3.0._**  
-Confirm Target Connection  
-![Confirm Target Connections](./media/image12.jpeg)
+- https://www.ssl.com/how-to/create-a-pfx-p12-certificate-file-using-openssl/
+- https://www.sslshopper.com/article-most-common-openssl-commands.html
+- https://www.openssl.org/blog/
 
-Select "Target" as role and "Teradata" as Type.
+Install Win64OpenSSL application.  
+Go to Start and run Win64 Open SSL Command Prompt traverse to directory of you certificate bundle from SSLforFree.
 
-Enter Credentials for _Teradata Server_, _Username_, _Password_
+Run the following command  
+`openssl pkcs12 -export -out new_certificate.pfx -inkey private.key -in certificate.crt`
 
-**Do not Click "Browse" on _"Default Database"_ now (We will Do that after Internal Parameters are set).**
+_Note Please note the Certificate Password since you will need it during import into certificate store_
 
-Click on **“Advanced”** on Top Menu Bar and it should bring Internal Parameter Window
+![Win65 Open SSL](./media/opensslimport.jpeg)
 
-Add Internal Driver for Teradata as Override. If you type keyword "driver" in the prompt is should allow you to click on the variable and add a value.
+You will see a new "new_certificate.pfx" file created
 
-**_Figure A.3.1._**  
-Add Internal Parameters  
-![Add Internal Parameters](./media/image13.jpeg)
+![New Certificate](./media/new_cert_created.jpeg)
 
-**_Following Setting were used for testing._**
+### Import the Certificate to Windows Server: (Please See Reference Document for more information)
 
-- Parameter: provider
-- Value: Teradata Database ODBC Driver 17.00
+1. Click Start > type MMC > Right Click > Run as Administrator
+2. Click File > Add / Remove Snap In
+3. Click Certificates > Click Add > choose My User Account
+4. Click Certificates > Add > choose Computer Account > choose Local Computer  
+   ![MMC Snaps](/media/mmc.jpeg)
 
-View setting summary to make sure **"provider"** variable is used to override drivers setting for Target End Point.
+5. Save MMC Setting to Desktop for Reference
+6. Navigate to each folder listed below and import the customer provided certificate(note you are importing pfx file)
 
-**_Figure A.3.2._**  
-View Setting Summary  
-![View Setting Summary](./media/image14.jpeg)
+   - Provide the password you supplied during OpenSSL Command
+   - _Tip: If you make keys as Exportable you can transfer keys during server migration_
+   - Certificates (Local Computer) > Trusted Root Certification Authorities > Certificates
+   - Certificates (Local Computer) > Personal > Certificates  
+     ![MMC Windows](./media/mmc2.jpeg)
 
-Qlik Replicate uses TPT Operator with Attribute which can be tweaked based on environment requirements.
+7. Verify Certification Import by looking at Domain as well as CA name. (In our case our CA was ZeroSSL)
+   ![Certificate Imported](./media/certimported.jpeg)
+8. View Certificate Thumbprint by navigating to the Details tab and copy the Thumbprint value. Make sure to copy all leading and trailing spaces\*
+   ![Certificate Thumbprint](./media/thumbprint.jpeg)
 
-**_Figure A.3.3._**  
-View TPT Settings  
-![View Settings](./media/image15.jpeg)
+### Import the Thumbprint to QMC
 
-**\*Press **"Browse"** button select Default database for Replicate and **"Test Connection"** button and Verify Connectivity.\***
-
-**_Figure A.3.3._**  
-Finalize Target Endpoint Settings  
-![Target Endpoint](./media/image11.jpeg)
+1. Open QMC > Proxies > Central Proxy > Edit
+2. On the right-hand side of the screen, click Security to enable additional
+   properties.
+3. Paste the browser thumbprint, including all spaces.
+   ![QMC Thumbprint](./media/qmc_thumbprint.jpeg)
+4. Click Apply to restart the Proxy.
 
 ## **Part 4**
 
-### Testing and Additional Information
+### Remove Conflicts
 
-If you fail in any of these steps please use the ODBC Manager built in with your os and test connections to your Teradata Server.
+`This section will be updated in future when setting up Microservice Architecture`
 
-For Specific Qlik Replicate functions please follow replicate guidelines to setup and test CDC Tasks.
+## **Part 5**
 
-Additional information can be found in help documentation in [**Summary**](#summary).
+### Configure Proxy
 
-For Testing Method Please contact your Qlik or Teradata Representatives for support from Professional services teams.
+`This section will be updated using a Proxy of API Gateway /Management Service`
+
+## **Part 6**
+
+### Verification
+
+1. Refresh Browser
+2. Validate by going to **_https_** port of shtesite from local server browser and external machine using different browser.
+3. The error message should disappear as well you should see that Qlik sense uses Secure Connection.  
+   ![Secure Qlik Sense](./media/secure_validation.jpeg)
+
+_Note - Using Safari Browser and Ipad/Iphone make sure the secure site is accessible due to stringent SSL built into Safari Browser. This may be required for Mobile Apps_
+
+4. At this point you may go to proxy and shut off **_http_** port access making your Qlik Sense Server Secure.(All Transmissions are encrypted)
+
+## **Part 7**
+
+### Additional Information
+
+If you would like additional information about this document please reach out John.Park@qlik.com or Michael.Robershaw@qlik.com
+
+Note Certificates can get messy so please back up often and document carefully.
 
 Othen Information can be found in [Qlik Community Technology Partners](https://community.qlik.com/t5/Technology-Partners-Ecosystem/ct-p/qlik-ecosystem "Qlik Technology Partner Eco System") in Technology Partner Sections where users can post questions and get them answered
